@@ -1,0 +1,9 @@
+cff-version: 1.0.0
+message: "If you use this software, please cite also this authors"
+
+authors:
+- family-names: "alex-wolf-ps"
+title: "dbchatpro"
+date-released: 
+url: "https://github.com/alex-wolf-ps/dbchatpro.git"
+

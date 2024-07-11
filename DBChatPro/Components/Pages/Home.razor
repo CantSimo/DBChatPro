@@ -1,0 +1,335 @@
+﻿@page "/"
+@using Azure
+@using Azure.AI.OpenAI
+@using System.Text.Json
+@using System.Text
+@using DBChatPro.Models
+@inject ISnackbar Snackbar 
+@inject OpenAIService AiService
+
+<PageTitle>Home</PageTitle>
+<MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Fixed="false">
+    <MudGrid Class="my-2">
+        @if (Connections.Count == 0)
+        {
+            <MudItem xs="6">
+                <p class="ma-6">You haven't connected a database yet. Visit the <a href="/connect-db">database connection</a> page to setup a connection.</p>
+            </MudItem>
+        }
+        else
+        {
+            // Main data query area
+            <MudItem xs="12">
+                <h1>
+                    Chat with your database
+                    <div style="float: right">
+                        <MudIconButton OnClick="@(() => ToggleDrawer(Anchor.End))" Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" />
+                    </div>
+                </h1>
+                <MudDivider Class="mb-6"></MudDivider>
+                <MudGrid>
+                    <MudItem xs="8">
+                        <p>
+                            Selected Database:
+                            <MudMenu Label="@ActiveConnection.Name" EndIcon="@Icons.Material.Filled.KeyboardArrowDown" IconColor="Color.Secondary">
+                                @foreach (var db in Connections)
+                                {
+                                    <MudMenuItem @onclick="() => LoadDatabase(db.Name)">@db.Name</MudMenuItem>
+                                }
+                            </MudMenu>
+                        </p>
+                        <EditForm Class="mb-6" Model="FmModel" OnSubmit="() => OnSubmit()">
+                            <div>
+                                <MudTextField @bind-Value="FmModel.Prompt" T="string" Label="Your prompt" Variant="Variant.Text" Lines="5" />
+                            </div>
+                            <div>
+                                <MudButton Class="my-6" Variant="Variant.Filled" ButtonType="ButtonType.Submit" Color="Color.Primary">Submit</MudButton>
+                            </div>
+                        </EditForm>
+                        @if (Loading)
+                        {
+                            <p Class="my-6">@LoadingMessage <MudProgressCircular Color="Color.Primary" Size="Size.Small" Indeterminate="true" /></p>
+                        }
+                        @if (!string.IsNullOrEmpty(Error))
+                        {
+                            <p Class="my-6"><b>Error:</b> @Error</p>
+                        }
+                    </MudItem>
+                    <MudItem xs="4">
+                    </MudItem>
+                </MudGrid>
+                <MudTabs KeepPanelsAlive="true" Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                    <MudTabPanel Text="Results">
+
+
+                        @if (RowData.Count > 0)
+                        {
+                            @if (table)
+                            {
+                                <MudTable SortLabel="Sort By" Items="@RowData.Skip(1)" Dense="@dense" Bordered="@bordered" Striped="@striped">
+                                    <HeaderContent>
+                                        @foreach (var item in RowData.FirstOrDefault())
+                                        {
+                                            <MudTh>@item</MudTh>
+                                        }
+                                    </HeaderContent>
+                                    <RowTemplate>
+                                        @foreach (var item in context)
+                                        {
+                                            <MudTd DataLabel="item">@item</MudTd>
+                                        }
+                                    </RowTemplate>
+                                    <PagerContent>
+                                        <MudTablePager />
+                                    </PagerContent>
+                                </MudTable>
+                            }
+
+                            @if (piechart)
+                            {
+                                //<MudChart ChartType="ChartType.Pie" InputLabels="@RowData.Skip(1).Select(x => x " InputData="@RowData[1]" Width="300px" Height="300px" /> *@
+                            }
+                        }
+                        else
+                        {
+                            <p>No data to show.</p>
+                        }
+                        <div class="d-flex flex-wrap mt-4">
+                            <p>
+                                Output:
+                                <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Style="padding-right:10px;">
+                                    <MudIconButton OnClick="ActivateTable" Icon="@Icons.Material.Filled.TableChart" Size="Size.Small"></MudIconButton>
+                                    <MudIconButton OnClick="ActivatePieChart" Icon="@Icons.Material.Filled.PieChart" Size="Size.Small"></MudIconButton>
+                                </MudButtonGroup>
+                            </p>
+                            <MudSwitch @bind-Checked="@dense" Color="Color.Secondary">Dense</MudSwitch>
+                            <MudSwitch @bind-Checked="@striped" Color="Color.Tertiary">Striped</MudSwitch>
+                            <MudSwitch @bind-Checked="@bordered" Color="Color.Warning">Bordered</MudSwitch>
+                            <MudFab @onclick="SaveFavorite" Style="justify-content: flex-end" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Favorite" Label="Favorite" />
+                        </div>
+                    </MudTabPanel>
+                    <MudTabPanel Text="SQL Editor">
+                        <div>
+                            <MudTextField @bind-Value="@Query" Text="@Query" T="string" Label="Edit generated query" Variant="Variant.Text" Lines="5" />
+                        </div>
+                        <div>
+                            <MudButton @onclick="EditQuery" Class="my-6" Variant="Variant.Filled" Color="Color.Primary">Execute</MudButton>
+                        </div>
+                    </MudTabPanel>
+                    <MudTabPanel Text="Insights">
+                        @if (!string.IsNullOrEmpty(Summary))
+                        {
+                            <p Class="my-6">@Summary</p>
+                        }
+                    </MudTabPanel>
+                </MudTabs>
+            </MudItem>
+
+            #region Right column tabs
+
+            <MudItem xs="4">
+                <MudDrawer Open="@open" Anchor="Anchor.Right" ClipMode="DrawerClipMode.Always" Elevation="1" Breakpoint="Breakpoint.SmAndUp" Width="25%" Variant="@DrawerVariant.Persistent">
+                    <MudTabs KeepPanelsAlive="true" Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+                        <MudTabPanel Text="Schema">
+                            <p class="ml-6 mb-6">Browse the tables and columns for <b>@ActiveConnection.Name</b></p>
+                            <MudTreeView T="string">
+                                @foreach (var table in ActiveConnection.SchemaStructured)
+                                {
+                                    <MudTreeViewItem Value="@table.TableName">
+                                        @foreach (var col in table.Columns)
+                                        {
+                                            <MudTreeViewItem Value="@col" />
+                                        }
+                                    </MudTreeViewItem>
+                                }
+                            </MudTreeView>
+                        </MudTabPanel>
+                        <MudTabPanel Text="History">
+                            @if (History.Count > 0)
+                            {
+                                <p class="mb-6">Query history for <b>@ActiveConnection.Name</b></p>
+                                <MudPaper>
+
+                                    @foreach (var item in History)
+                                    {
+                                        <MudList Clickable="true">
+                                            <MudListItem OnClick="() => LoadHistoryItem(item.Query)" Text="@item.Name" />
+                                        </MudList>
+                                    }
+                                </MudPaper>
+
+                            }
+                            else
+                            {
+                                <p class="mb-6">You haven't run any prompts yet.</p>
+                            }
+                        </MudTabPanel>
+                        <MudTabPanel Text="Favorites">
+                            @if (Favorites.Count > 0)
+                            {
+                                <p class="mb-6">Your saved queries for <b>@ActiveConnection.Name</b></p>
+                                <MudPaper>
+
+                                    @foreach (var item in Favorites)
+                                    {
+                                        <MudList Clickable="true">
+                                            <MudListItem OnClick="() => LoadHistoryItem(item.Query)" Text="@item.Name" />
+                                        </MudList>
+                                    }
+                                </MudPaper>
+
+                            }
+                            else
+                            {
+                                <p class="mb-6">You haven't saved any favorites for <b>@ActiveConnection.Name</b> yet.</p>
+                            }
+                        </MudTabPanel>
+                    </MudTabs>
+                </MudDrawer>
+            </MudItem>
+
+            #endregion
+        }
+    </MudGrid>
+</MudContainer>
+@code {
+    // Table styling
+    private bool dense = false;
+    private bool hover = true;
+    private bool striped = true;
+    private bool bordered = true;
+    private bool table = true;
+    private bool piechart = false;
+
+    // Form data
+    public FormModel FmModel { get; set; } = new FormModel();
+
+    // General UI data
+    private bool Loading = false;
+    private string LoadingMessage = String.Empty;
+    public AIConnection ActiveConnection { get; set; } = new();
+
+    // Data lists
+    public List<HistoryItem> History { get; set; } = new();
+    public List<HistoryItem> Favorites { get; set; } = new();
+    public List<List<string>> RowData = new();
+    public List<AIConnection> Connections { get; set; } = new();
+
+    // Prompt & completion data
+    private string Prompt = String.Empty;
+    private string Summary = String.Empty;
+    private string Query = String.Empty;
+    private string Error = String.Empty;
+
+    // UI Drawer stuff
+    bool open = true;
+    Anchor anchor;
+    void ToggleDrawer(Anchor anchor)
+    {
+        open = !open;
+        this.anchor = anchor;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Connections = DatabaseService.GetAIConnections();
+        if (Connections.Count > 0)
+        {
+            ActiveConnection = Connections.FirstOrDefault();
+        }
+        else
+        {
+            ActiveConnection = new AIConnection() { SchemaRaw = new List<string>(), SchemaStructured = new List<TableSchema>() };
+        }
+        History = HistoryService.GetQueries(ActiveConnection.Name);
+        Favorites = HistoryService.GetFavorites(ActiveConnection.Name);
+    }
+
+    private void SaveFavorite()
+    {
+        HistoryService.SaveFavorite(FmModel.Prompt, ActiveConnection.Name);
+        Favorites = HistoryService.GetFavorites(ActiveConnection.Name);
+        Snackbar.Add("Saved favorite!", Severity.Success);
+    }
+
+    private void EditQuery()
+    {
+        RowData = DatabaseService.GetDataTable(ActiveConnection, Query);
+        Snackbar.Add("Results updated.", Severity.Success);
+    }
+
+    public void LoadDatabase(string dbName)
+    {
+        ActiveConnection = DatabaseService.GetAIConnections().FirstOrDefault(x => x.Name == dbName);
+        History = HistoryService.GetQueries(ActiveConnection.Name);
+        Favorites = HistoryService.GetFavorites(ActiveConnection.Name);
+        ClearUI();
+    }
+
+    private void ClearUI()
+    {
+        Prompt = String.Empty;
+        Summary = String.Empty;
+        Query = String.Empty;
+        Error = String.Empty;
+        RowData = new List<List<string>>();
+        FmModel = new FormModel();
+    }
+
+    public async Task LoadHistoryItem(string query)
+    {
+        FmModel.Prompt = query;
+        await RunDataChat(query);
+    }
+
+    public async Task OnSubmit()
+    {
+        await RunDataChat(FmModel.Prompt);
+    }
+
+    private void ActivateTable(MouseEventArgs m)
+    {
+        table = true;
+        piechart = false;
+    }
+
+    private void ActivatePieChart(MouseEventArgs m)
+    {
+        table = false;
+        piechart = true;
+    }
+
+    public async Task RunDataChat(string Prompt)
+    {
+        try
+        {
+            Loading = true;
+
+            #region
+
+            LoadingMessage = "Getting the AI query...";
+            var aiResponse = await AiService.GetAISQLQuery(Prompt, ActiveConnection);
+
+            Query = aiResponse.query;
+            Summary = aiResponse.summary;
+
+            #endregion
+
+            LoadingMessage = "Running the Database query...";
+
+            RowData = DatabaseService.GetDataTable(ActiveConnection, Query);
+
+            Loading = false;
+            HistoryService.SaveQuery(Prompt, ActiveConnection.Name);
+            History = HistoryService.GetQueries(ActiveConnection.Name);
+            Favorites = HistoryService.GetFavorites(ActiveConnection.Name);
+            Error = string.Empty;
+        }
+        catch (Exception e)
+        {
+            Error = e.Message;
+            Loading = false;
+            LoadingMessage = String.Empty;
+        }
+    }
+}

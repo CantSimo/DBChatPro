@@ -1,0 +1,225 @@
+﻿@page "/connect-db"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text.Json
+@using Microsoft.Data.SqlClient
+
+<div Class="ma-4">
+    <h1>Manage Database Connections</h1>
+    <MudDivider />
+    <EditForm Model="@Connection" OnValidSubmit="OnValidSubmit">
+        <DataAnnotationsValidator />
+        <MudGrid Class="mt-6">
+            <MudItem xs="12" md="6">
+                <h2 Class="mb-6">Add a Connection</h2>
+                <div>
+                    <p>Provide a connection string below to connect to a database and extract the schema. The schema is used by the AI to build queries for your database.</p>
+                    <MudAlert Class="my-6" Severity="Severity.Info">The AI service does NOT have access to the database or data records - it only understands the schema.</MudAlert>
+                    @if (!string.IsNullOrEmpty(Error))
+                    {
+                        <MudAlert Class="my-6" Severity="Severity.Error">An error occured: @Error</MudAlert>
+                    }
+                </div>
+                <MudCard>
+                    <MudCardContent>
+                        <MudTextField @bind-Value="Connection.Name" T="string" Label="Connection name" Variant="Variant.Text" />
+                        <MudTextField @bind-Value="Connection.ConnectionString" T="string" Label="Connection string" Variant="Variant.Text" Lines="5" />
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Generate Schema</MudButton>
+                    </MudCardActions>
+                </MudCard>
+                @if (aiConnection.SchemaStructured.Count > 0)
+                {
+                <MudCard Class="my-6">
+                    <MudCardContent>
+                            <p>
+                                The following tables and columns were discovered. Do you want to save this schema?
+                                    <MudButton Style="float:right" OnClick="() => SaveSchema()" ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Class="ml-auto">Save</MudButton>
+                            </p>
+                    <div Class="my-6">
+                        <MudTreeView T="string">
+                            @foreach (var table in aiConnection.SchemaStructured)
+                            {
+                                <MudTreeViewItem Value="@table.TableName">
+                                    @foreach (var col in table.Columns)
+                                    {
+                                        <MudTreeViewItem Value="@col" />
+                                    }
+                                </MudTreeViewItem>
+                            }
+                        </MudTreeView>
+                    </div>
+                    </MudCardContent>
+                </MudCard>
+                }
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <h2 Class="mb-6 ml-6">Existing Connections</h2>
+                @if (ExistingDbs.Count > 0)
+                {
+                    <MudPaper MaxWidth="100%" Class="my-6">
+
+                        <MudList Clickable="false">
+                            @foreach (var item in ExistingDbs)
+                            {
+                                <MudListItem><span>@item.Name </span><MudIconButton Style="float: right" Icon="@Icons.Material.Filled.Delete" OnClick="() => DeleteConnection(item.Name)" Size="Size.Small" Variant="Variant.Filled" Color="Color.Secondary">Delete</MudIconButton></MudListItem>
+                            }
+                        </MudList>
+                    </MudPaper>
+
+                }
+                else
+                {
+                    <p class="ma-6">No queries yet.</p>
+                }
+            </MudItem>
+        </MudGrid>
+    </EditForm>
+</div>
+@code {
+    string Error = String.Empty;
+    AIConnection Connection = new();
+    bool success;
+    private bool Loading = false;
+    AIConnection aiConnection = new() { SchemaStructured = new List<TableSchema>(), SchemaRaw = new List<string>() };
+    List<AIConnection> ExistingDbs = new List<AIConnection>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            ExistingDbs = DatabaseService.GetAIConnections();
+        }
+        catch (Exception e)
+        {
+            var test = e.Message;
+        }
+
+    }
+
+    private async Task DeleteConnection(string name)
+    {
+        ExistingDbs = DatabaseService.GetAIConnections();
+
+        var existing = ExistingDbs.FirstOrDefault(x => x.Name == name);
+
+        ExistingDbs.Remove(existing);
+
+        File.WriteAllText(@"AIConnections.txt", JsonSerializer.Serialize(ExistingDbs));
+    }
+
+    private async Task OnValidSubmit(EditContext context)
+    {
+        try
+        {
+            Loading = true;
+            aiConnection = await GenerateSchema(Connection);
+            Loading = false;
+            Error = String.Empty;
+        } 
+        catch(Exception e)
+        {
+            Error = e.Message;
+        }
+    }
+
+    private async Task SaveSchema()
+    {
+        var aiConns = new List<AIConnection>();
+        try
+        {
+            aiConns = DatabaseService.GetAIConnections();
+        }
+        catch (Exception e)
+        {
+            Error = e.Message;
+        }
+
+        aiConns.Add(aiConnection);
+
+        File.WriteAllText(@"AIConnections.txt", JsonSerializer.Serialize(aiConns));
+
+        ExistingDbs = DatabaseService.GetAIConnections();
+        Error = String.Empty;
+    }
+
+    private async Task<AIConnection> GenerateSchema(AIConnection conn)
+    {
+        AIConnection aiCon = new() { SchemaRaw = new List<string>(), SchemaStructured = new List<TableSchema>() };
+
+        aiCon.Name = conn.Name;
+        aiCon.ConnectionString = conn.ConnectionString;
+        List<KeyValuePair<string, ColumnSchema>> rows = new();
+
+        using (SqlConnection connection = new SqlConnection(conn.ConnectionString))
+        {
+            connection.Open();
+
+            // string sql = @"SELECT SCHEMA_NAME(schema_id) + '.' + o.Name AS 'TableName', c.Name as 'ColumName'
+            //     FROM     sys.columns c
+            //              JOIN sys.objects o ON o.object_id = c.object_id
+            //     WHERE    o.type = 'U'
+            //     ORDER BY o.Name";
+            string sql = @"SELECT SCHEMA_NAME(o.schema_id) + '.' + o.Name AS 'TableName', c.Name as 'ColumnName', t.Name as 'DataType', c.max_length as 'MaxLength'
+                           FROM
+                               sys.columns c
+                           JOIN
+                               sys.objects o ON o.object_id = c.object_id
+                           JOIN
+                               sys.types t ON c.user_type_id = t.user_type_id
+                           WHERE
+                               o.type = 'U'
+                           ORDER BY
+                               o.Name;
+                           ";
+
+            using (SqlCommand command = new SqlCommand(sql, connection))
+            {
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        var col = new ColumnSchema();
+                        col.ColumnName = reader.GetValue(1).ToString();
+                        col.DataType = reader.GetValue(2).ToString();
+                        col.MaxLength = reader.GetValue(3).ToString();
+
+                        rows.Add(new KeyValuePair<string, ColumnSchema>(reader.GetValue(0).ToString(), col));
+                    }
+                }
+            }
+        }
+
+        var groups = rows.GroupBy(x => x.Key);
+
+        foreach (var group in groups)
+        {
+            aiCon.SchemaStructured.Add(new TableSchema() { TableName = group.Key, Columns = group.Select(x => x.Value).ToList() });
+            //use this list
+        }
+
+        var textLines = new List<string>();
+
+        foreach (var table in aiCon.SchemaStructured)
+        {
+            var schemaLine = $"- {table.TableName} (";
+
+            foreach (var column in table.Columns)
+            {
+                schemaLine += column.ColumnName + " " + column.DataType + " " + column.MaxLength + ", ";
+            }
+
+            schemaLine += ")";
+            schemaLine = schemaLine.Replace(", )", " )");
+
+            Console.WriteLine(schemaLine);
+            textLines.Add(schemaLine);
+        }
+
+        aiCon.SchemaRaw = textLines;
+
+        return aiCon;
+    }
+
+}
