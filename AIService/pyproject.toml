@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "AIService"
+version = "0.0.1"
+description = ""
+authors = ["Your Name <34923485+Haste171@users.noreply.github.com>"]
+license = "MIT"
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = ">=3.9,<3.9.7 || >3.9.7,<3.13"
+python-dotenv = "^1.0.1"
+pinecone-client = ">=3.2.2,<4.0.0"
+colorama = "^0.4.6"
+streamlit = "^1.32.0"
+watchdog = "^4.0.0"
+python-multipart = "^0.0.9"
+pymupdf = "^1.23.26"
+fastapi = "^0.110.0"
+uvicorn = "^0.28.0"
+docx2txt = "^0.8"
+langchain = "^0.2.7"
+langchain-openai = "^0.1.14"
+langchain-anthropic = "^0.1.19"
+langchain-community = "^0.2.7"
+langchain-pinecone = "^0.1.1"
+pyodbc = "^5.1.0"
+mssql = "^1.0.1"
+langgraph = "^0.1.8"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
