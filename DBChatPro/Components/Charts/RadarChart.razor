@@ -1,0 +1,47 @@
+﻿@using Microsoft.AspNetCore.Components
+@using Microsoft.JSInterop
+
+<div style="height: 500px; width: 500px;">
+    <canvas id="@CanvasId"></canvas>
+</div>
+
+@code {
+    [Parameter] public string[] Labels { get; set; }
+    [Parameter] public double[] Data { get; set; }
+    [Parameter] public string CanvasId { get; set; } = "myRadarChart";
+
+    [Inject] IJSRuntime JSRuntime { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeChart();
+        }
+    }
+
+    private async Task InitializeChart()
+    {
+        var script = $@"
+            var ctx = document.getElementById('{CanvasId}').getContext('2d');
+            var myRadarChart = new Chart(ctx, {{
+                type: 'radar',
+                data: {{
+                    labels: {JsonSerializer.Serialize(Labels)},
+                    datasets: [{{
+                        label: 'Dataset',
+                        data: {JsonSerializer.Serialize(Data)},
+                        fill: true,
+                        backgroundColor: 'rgba(54,162,235,0.2)',
+                        borderColor: '#36A2EB'
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false
+                }}
+            }});";
+
+        await JSRuntime.InvokeVoidAsync("eval", script);
+    }
+}

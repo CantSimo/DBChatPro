@@ -3,6 +3,7 @@
 @using Azure.AI.OpenAI
 @using System.Text.Json
 @using System.Text
+@using DBChatPro.Components.Charts
 @using DBChatPro.Models
 @using Microsoft.Data.SqlClient
 @using System.Data
@@ -87,11 +88,6 @@
                                     </PagerContent>
                                 </MudTable>
                             }
-
-                            @if (piechart)
-                            {
-                                //<MudChart ChartType="ChartType.Pie" InputLabels="@RowData.Skip(1).Select(x => x " InputData="@RowData[1]" Width="300px" Height="300px" /> *@
-                            }
                         }
                         else
                         {
@@ -103,20 +99,41 @@
                             <MudSwitch @bind-Checked="@bordered" Color="Color.Warning">Bordered</MudSwitch>
                             <MudFab @onclick="SaveFavorite" Style="justify-content: flex-end" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Favorite" Label="Favorite" />
                         </div>
-                        <MudSelect T="string" Label="Chart Type" @bind-Value="selectedChartType">
-                            <MudSelectItem Value=@("Donut")>Donut</MudSelectItem>
-                            <MudSelectItem Value=@("Pie")>Pie</MudSelectItem>
+                        <MudSelect T="MyChartTypes" Label="Chart Type" @bind-Value="selectedChartType">
+                            <MudSelectItem Value=@(MyChartTypes.None)>No chart</MudSelectItem>
+                            <MudSelectItem Value=@(MyChartTypes.Pie)>Pie</MudSelectItem>
+                            <MudSelectItem Value=@(MyChartTypes.HorizontalBar)>Horizontal Bar</MudSelectItem>
+                            <MudSelectItem Value=@(MyChartTypes.VerticalBar)>Vertical Bar</MudSelectItem>
+                            <MudSelectItem Value=@(MyChartTypes.Radar)>Radar</MudSelectItem>
+                            <MudSelectItem Value=@(MyChartTypes.Doughnut)>Doughnut</MudSelectItem>
+                            <MudSelectItem Value=@(MyChartTypes.PolarArea)>Polar Area</MudSelectItem>
                         </MudSelect>
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Charterize" style="margin:5px;">Charterize me!</MudButton>
                         @if (chartLabels != null && dataArray != null)
                         {
-                            @if (selectedChartType == "Pie")
+                            @if (selectedChartType == MyChartTypes.Pie)
                             {
-                                <MudChart Width="300px" Height="300px" ChartType="ChartType.Pie" InputLabels="chartLabels" InputData="dataArray"/>
+                                <PieChart Labels="chartLabels" Data="dataArray" />
                             }
-                            @if (selectedChartType == "Donut")
+                            @if (selectedChartType == MyChartTypes.HorizontalBar)
                             {
-                                <MudChart Width="300px" Height="300px" ChartType="ChartType.Donut" InputLabels="chartLabels" InputData="dataArray" />
+                                <HorizontalBarChart Labels="chartLabels" Data="dataArray" />
+                            }
+                            @if (selectedChartType == MyChartTypes.VerticalBar)
+                            {
+                                <VerticalBarChart Labels="chartLabels" Data="dataArray"/>
+                            }
+                            @if (selectedChartType == MyChartTypes.Doughnut)
+                            {
+                                <DoughnutChart Labels="chartLabels" Data="dataArray" />
+                            }
+                            @if (selectedChartType == MyChartTypes.Radar)
+                            {
+                                <RadarChart Labels="chartLabels" Data="dataArray" />
+                            }
+                            @if (selectedChartType == MyChartTypes.PolarArea)
+                            {
+                                <PolarAreaChart Labels="chartLabels" Data="dataArray"/>
                             }
                         }
                     </MudTabPanel>
@@ -233,7 +250,7 @@
     private string Query = String.Empty;
     private string Error = String.Empty;
 
-    private string selectedChartType = "Donut";
+    private MyChartTypes selectedChartType;
     private string sqlQuery;
     string[] chartLabels;
     double[] dataArray;
@@ -245,11 +262,6 @@
     {
         open = !open;
         this.anchor = anchor;
-    }
-
-    private void SetChartType(string chartType)
-    {
-        selectedChartType = chartType;
     }
 
     private async Task Charterize()
@@ -288,6 +300,7 @@
             // Gestisci l'errore (mostralo all'utente, log, ecc.)
         }
     }
+
     protected override async Task OnInitializedAsync()
     {
         Connections = DatabaseService.GetAIConnections();
@@ -301,6 +314,7 @@
         }
         History = HistoryService.GetQueries(ActiveConnection.Name);
         Favorites = HistoryService.GetFavorites(ActiveConnection.Name);
+        selectedChartType = MyChartTypes.None;
     }
 
     private void SaveFavorite()
@@ -312,8 +326,10 @@
 
     private void EditQuery()
     {
+        sqlQuery = Query;
         RowData = DatabaseService.GetDataTable(ActiveConnection, Query);
         Snackbar.Add("Results updated.", Severity.Success);
+        selectedChartType = MyChartTypes.None;
     }
 
     public void LoadDatabase(string dbName)
@@ -343,6 +359,7 @@
     public async Task OnSubmit()
     {
         await RunDataChat(FmModel.Prompt);
+        selectedChartType = MyChartTypes.None;
     }
 
     private void ActivateTable(MouseEventArgs m)

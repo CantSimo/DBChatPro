@@ -1,0 +1,46 @@
+﻿@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Rendering
+@using System.Text.Json
+@inject IJSRuntime JSRuntime
+
+<div>
+    <canvas id="@CanvasId"></canvas>
+</div>
+
+@code {
+    [Parameter] public string[] Labels { get; set; }
+    [Parameter] public double[] Data { get; set; }
+    [Parameter] public string CanvasId { get; set; } = "myPieChart";
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Initialize the chart when the component is rendered for the first time
+            InitializeChart();
+        }
+    }
+
+    private void InitializeChart()
+    {
+        var script = $@"
+            var ctx = document.getElementById('{CanvasId}').getContext('2d');
+            var myPieChart = new Chart(ctx, {{
+                type: 'pie',
+                data: {{
+                    labels: {JsonSerializer.Serialize(Labels)},
+                    datasets: [{{
+                        data: {JsonSerializer.Serialize(Data)},
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56'],
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false
+                }}
+            }});";
+
+        // Use JS interop to run the script
+        JSRuntime.InvokeVoidAsync("eval", script);
+    }
+}

@@ -1,0 +1,44 @@
+﻿@using Microsoft.AspNetCore.Components
+@using Microsoft.JSInterop
+
+<div style="height: 500px; width: 500px;">
+    <canvas id="@CanvasId"></canvas>
+</div>
+
+@code {
+    [Parameter] public string[] Labels { get; set; }
+    [Parameter] public double[] Data { get; set; }
+    [Parameter] public string CanvasId { get; set; } = "myPolarAreaChart";
+
+    [Inject] IJSRuntime JSRuntime { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeChart();
+        }
+    }
+
+    private async Task InitializeChart()
+    {
+        var script = $@"
+            var ctx = document.getElementById('{CanvasId}').getContext('2d');
+            var myPolarAreaChart = new Chart(ctx, {{
+                type: 'polarArea',
+                data: {{
+                    labels: {JsonSerializer.Serialize(Labels)},
+                    datasets: [{{
+                        data: {JsonSerializer.Serialize(Data)},
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40']
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false
+                }}
+            }});";
+
+        await JSRuntime.InvokeVoidAsync("eval", script);
+    }
+}

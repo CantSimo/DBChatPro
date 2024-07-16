@@ -1,0 +1,76 @@
+﻿@using Microsoft.AspNetCore.Components
+@using Microsoft.JSInterop
+
+<div style="height: 600px; width: 800px;">
+    <canvas id="@CanvasId"></canvas>
+</div>
+
+@code {
+    [Parameter] public string[] Labels { get; set; }
+    [Parameter] public double[] Data { get; set; }
+    [Parameter] public string CanvasId { get; set; } = "myVerticalBarChart";
+
+    [Inject] IJSRuntime JSRuntime { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeChart();
+        }
+    }
+
+    private async Task InitializeChart()
+    {
+        var script = $@"
+            var ctx = document.getElementById('{CanvasId}').getContext('2d');
+            var myVerticalBarChart = new Chart(ctx, {{
+                type: 'bar',
+                data: {{
+                    labels: {JsonSerializer.Serialize(Labels)},
+                    datasets: [{{
+                        label: 'Dataset',
+                        data: {JsonSerializer.Serialize(Data)},
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 1
+                    }}]
+                }},
+                options: {{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {{
+                        x: {{
+                            ticks: {{
+                                autoSkip: false,
+                                maxRotation: 90,
+                                minRotation: 45
+                            }}
+                        }},
+                        y: {{
+                            beginAtZero: true
+                        }}
+                    }},
+                    plugins: {{
+                        legend: {{
+                            display: true,
+                            position: 'top'
+                        }},
+                        tooltip: {{
+                            enabled: true
+                        }}
+                    }},
+                    layout: {{
+                        padding: {{
+                            left: 10,
+                            right: 10,
+                            top: 10,
+                            bottom: 30
+                        }}
+                    }}
+                }}
+            }});";
+
+        await JSRuntime.InvokeVoidAsync("eval", script);
+    }
+}
