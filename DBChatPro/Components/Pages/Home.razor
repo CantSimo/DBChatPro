@@ -104,8 +104,7 @@
                             <MudFab @onclick="SaveFavorite" Style="justify-content: flex-end" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Favorite" Label="Favorite" />
                         </div>
                         <MudSelect T="string" Label="Chart Type" @bind-Value="selectedChartType">
-                            <MudSelectItem Value=@("Bar")>Bar</MudSelectItem>
-                            <MudSelectItem Value=@("Line")>Line</MudSelectItem>
+                            <MudSelectItem Value=@("Donut")>Donut</MudSelectItem>
                             <MudSelectItem Value=@("Pie")>Pie</MudSelectItem>
                         </MudSelect>
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Charterize" style="margin:5px;">Charterize me!</MudButton>
@@ -113,7 +112,11 @@
                         {
                             @if (selectedChartType == "Pie")
                             {
-                                <MudChart ChartType="ChartType.Pie" InputLabels="chartLabels" InputData="dataArray" />
+                                <MudChart Width="300px" Height="300px" ChartType="ChartType.Pie" InputLabels="chartLabels" InputData="dataArray"/>
+                            }
+                            @if (selectedChartType == "Donut")
+                            {
+                                <MudChart Width="300px" Height="300px" ChartType="ChartType.Donut" InputLabels="chartLabels" InputData="dataArray" />
                             }
                         }
                     </MudTabPanel>
@@ -230,7 +233,7 @@
     private string Query = String.Empty;
     private string Error = String.Empty;
 
-    private string selectedChartType = "Bar";
+    private string selectedChartType = "Donut";
     private string sqlQuery;
     string[] chartLabels;
     double[] dataArray;
