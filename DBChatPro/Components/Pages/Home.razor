@@ -4,8 +4,11 @@
 @using System.Text.Json
 @using System.Text
 @using DBChatPro.Models
-@inject ISnackbar Snackbar 
+@using Microsoft.Data.SqlClient
+@using System.Data
+@inject ISnackbar Snackbar
 @inject OpenAIService AiService
+@inject HttpClient Http
 
 <PageTitle>Home</PageTitle>
 <MudContainer MaxWidth="MaxWidth.ExtraExtraLarge" Fixed="false">
@@ -95,18 +98,24 @@
                             <p>No data to show.</p>
                         }
                         <div class="d-flex flex-wrap mt-4">
-                            <p>
-                                Output:
-                                <MudButtonGroup Color="Color.Primary" Variant="Variant.Outlined" Style="padding-right:10px;">
-                                    <MudIconButton OnClick="ActivateTable" Icon="@Icons.Material.Filled.TableChart" Size="Size.Small"></MudIconButton>
-                                    <MudIconButton OnClick="ActivatePieChart" Icon="@Icons.Material.Filled.PieChart" Size="Size.Small"></MudIconButton>
-                                </MudButtonGroup>
-                            </p>
                             <MudSwitch @bind-Checked="@dense" Color="Color.Secondary">Dense</MudSwitch>
                             <MudSwitch @bind-Checked="@striped" Color="Color.Tertiary">Striped</MudSwitch>
                             <MudSwitch @bind-Checked="@bordered" Color="Color.Warning">Bordered</MudSwitch>
                             <MudFab @onclick="SaveFavorite" Style="justify-content: flex-end" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Favorite" Label="Favorite" />
                         </div>
+                        <MudSelect T="string" Label="Chart Type" @bind-Value="selectedChartType">
+                            <MudSelectItem Value=@("Bar")>Bar</MudSelectItem>
+                            <MudSelectItem Value=@("Line")>Line</MudSelectItem>
+                            <MudSelectItem Value=@("Pie")>Pie</MudSelectItem>
+                        </MudSelect>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Charterize" style="margin:5px;">Charterize me!</MudButton>
+                        @if (chartLabels != null && dataArray != null)
+                        {
+                            @if (selectedChartType == "Pie")
+                            {
+                                <MudChart ChartType="ChartType.Pie" InputLabels="chartLabels" InputData="dataArray" />
+                            }
+                        }
                     </MudTabPanel>
                     <MudTabPanel Text="SQL Editor">
                         <div>
@@ -221,6 +230,11 @@
     private string Query = String.Empty;
     private string Error = String.Empty;
 
+    private string selectedChartType = "Bar";
+    private string sqlQuery;
+    string[] chartLabels;
+    double[] dataArray;
+
     // UI Drawer stuff
     bool open = true;
     Anchor anchor;
@@ -230,6 +244,47 @@
         this.anchor = anchor;
     }
 
+    private void SetChartType(string chartType)
+    {
+        selectedChartType = chartType;
+    }
+
+    private async Task Charterize()
+    {
+        string connectionString = ActiveConnection.ConnectionString;
+
+        if (string.IsNullOrWhiteSpace(sqlQuery))
+            return;
+
+        try
+        {
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                SqlCommand command = new SqlCommand(sqlQuery, connection);
+                await connection.OpenAsync();
+                SqlDataReader reader = await command.ExecuteReaderAsync();
+
+                var dataTable = new DataTable();
+                dataTable.Load(reader);
+
+                int rowCount = dataTable.Rows.Count;
+                chartLabels = new string[rowCount];
+                dataArray = new double[rowCount];
+
+                // Popola le liste e l'array
+                for (int i = 0; i < rowCount; i++)
+                {
+                    DataRow row = dataTable.Rows[i];
+                    chartLabels[i] = row[0].ToString();
+                    dataArray[i] = Convert.ToDouble(row[1]); // Popola l'array
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            // Gestisci l'errore (mostralo all'utente, log, ecc.)
+        }
+    }
     protected override async Task OnInitializedAsync()
     {
         Connections = DatabaseService.GetAIConnections();
@@ -307,13 +362,36 @@
 
             #region
 
-            LoadingMessage = "Getting the AI query...";
-            var aiResponse = await AiService.GetAISQLQuery(Prompt, ActiveConnection);
+            // LoadingMessage = "Getting the AI query...";
+            // var aiResponse = await AiService.GetAISQLQuery(Prompt, ActiveConnection);
 
-            Query = aiResponse.query;
-            Summary = aiResponse.summary;
+            // Query = aiResponse.query;
+            // Summary = aiResponse.summary;
 
             #endregion
+
+            #region
+
+            var data = new RequestData();
+            data.Query = Prompt;
+            data.Model = "gpt-3.5-turbo";
+            data.Temperature = 0.2;
+
+            var response = await Http.PostAsJsonAsync("chat", data);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Query = (await response.Content.ReadFromJsonAsync<ResponseData>()).Response;
+            }
+            else
+            {
+                // Gestisci l'errore
+                return;
+            }
+
+            #endregion
+
+            sqlQuery = Query;
 
             LoadingMessage = "Running the Database query...";
 

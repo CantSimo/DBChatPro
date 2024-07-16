@@ -13,6 +13,8 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSingleton<OpenAIService>();
 
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:9092") });
+
 builder.Services.AddMudServices(config =>
 {
     config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.BottomLeft;
