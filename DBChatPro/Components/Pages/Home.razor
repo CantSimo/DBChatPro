@@ -49,6 +49,7 @@
                             <div>
                                 <MudButton Class="my-6" Variant="Variant.Filled" ButtonType="ButtonType.Submit" Color="Color.Primary">Submit</MudButton>
                             </div>
+                            <div><p>@opeanai_fee</p></div>
                         </EditForm>
                         @if (Loading)
                         {
@@ -249,6 +250,7 @@
     private string Summary = String.Empty;
     private string Query = String.Empty;
     private string Error = String.Empty;
+    private string opeanai_fee = string.Empty;
 
     private MyChartTypes selectedChartType;
     private string sqlQuery;
@@ -395,13 +397,16 @@
             var data = new RequestData();
             data.Query = Prompt;
             data.Model = "gpt-3.5-turbo";
-            data.Temperature = 0.2;
+            data.Temperature = 0;
 
             var response = await Http.PostAsJsonAsync("chat", data);
 
             if (response.IsSuccessStatusCode)
             {
-                Query = (await response.Content.ReadFromJsonAsync<ResponseData>()).Response;
+
+                var GeneratedResponse = await response.Content.ReadFromJsonAsync<OpenAIApiResponse>();
+                Query = GeneratedResponse.Response.Query;
+                opeanai_fee = GeneratedResponse.Response.OpenAIFee.ToString();
             }
             else
             {
