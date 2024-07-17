@@ -83,7 +83,7 @@ class BaseHandler():
 
             # Get GPT model
             # llm=self.llm_map[self.chat_model] 
-            llm=ChatOpenAI(model='gpt-3.5-turbo', temperature=0.2, openai_api_key=os.getenv('OPENAI_API_KEY'))
+            llm=ChatOpenAI(model='gpt-3.5-turbo', temperature=0.2, openai_api_key=os.getenv('OPENAI_API_KEY'), verbose=True)
 
             # ************************************************************
             # create_sql_query_chain - [OK]
@@ -133,6 +133,9 @@ class BaseHandler():
                         return output
 
             chain = create_sql_query_chain(llm, db, prompt=prompt) | parse_final_answer
+            
+            #chain.get_prompts()[0].pretty_print()
+            #print("**********************************************")
 
             with get_openai_callback() as cb:
                 response = chain.invoke(
@@ -140,8 +143,6 @@ class BaseHandler():
                                 "question": user_question
                             }
                         )
-
-            print("**********************************************")
             print(cb)
 
             # Extract relevant information from cb
@@ -227,7 +228,7 @@ class BaseHandler():
             # ************************************************************
             # toolkit = SQLDatabaseToolkit(db=db, llm=llm)
             # tools = toolkit.get_tools()
-            # tools
+            # # tools
 
             # SQL_PREFIX = """You are an agent designed to interact with a SQL Server database.
             # Given an input question, create a syntactically correct SQL Server query to run, then look at the results of the query and return the answer.

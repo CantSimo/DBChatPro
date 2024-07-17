@@ -65,8 +65,6 @@
                 </MudGrid>
                 <MudTabs KeepPanelsAlive="true" Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
                     <MudTabPanel Text="Results">
-
-
                         @if (RowData.Count > 0)
                         {
                             @if (table)
@@ -94,22 +92,22 @@
                         {
                             <p>No data to show.</p>
                         }
-                        <div class="d-flex flex-wrap mt-4">
+                        <div class="d-flex flex-wrap mt-4" style="align-items:baseline">
                             <MudSwitch @bind-Checked="@dense" Color="Color.Secondary">Dense</MudSwitch>
                             <MudSwitch @bind-Checked="@striped" Color="Color.Tertiary">Striped</MudSwitch>
                             <MudSwitch @bind-Checked="@bordered" Color="Color.Warning">Bordered</MudSwitch>
                             <MudFab @onclick="SaveFavorite" Style="justify-content: flex-end" Color="Color.Secondary" StartIcon="@Icons.Material.Filled.Favorite" Label="Favorite" />
+                            <MudSelect T="MyChartTypes" Label="Chart Type" @bind-Value="selectedChartType" Style="margin-left:10px;">
+                                <MudSelectItem Value=@(MyChartTypes.None)>No chart</MudSelectItem>
+                                <MudSelectItem Value=@(MyChartTypes.Pie)>Pie</MudSelectItem>
+                                <MudSelectItem Value=@(MyChartTypes.HorizontalBar)>Horizontal Bar</MudSelectItem>
+                                <MudSelectItem Value=@(MyChartTypes.VerticalBar)>Vertical Bar</MudSelectItem>
+                                <MudSelectItem Value=@(MyChartTypes.Radar)>Radar</MudSelectItem>
+                                <MudSelectItem Value=@(MyChartTypes.Doughnut)>Doughnut</MudSelectItem>
+                                <MudSelectItem Value=@(MyChartTypes.PolarArea)>Polar Area</MudSelectItem>
+                            </MudSelect>
+                            <MudFab StartIcon="@Icons.Material.Filled.BarChart" Variant="Variant.Filled" Color="Color.Primary" OnClick="Charterize" style="margin:5px;" Label="Chart results"></MudFab>
                         </div>
-                        <MudSelect T="MyChartTypes" Label="Chart Type" @bind-Value="selectedChartType">
-                            <MudSelectItem Value=@(MyChartTypes.None)>No chart</MudSelectItem>
-                            <MudSelectItem Value=@(MyChartTypes.Pie)>Pie</MudSelectItem>
-                            <MudSelectItem Value=@(MyChartTypes.HorizontalBar)>Horizontal Bar</MudSelectItem>
-                            <MudSelectItem Value=@(MyChartTypes.VerticalBar)>Vertical Bar</MudSelectItem>
-                            <MudSelectItem Value=@(MyChartTypes.Radar)>Radar</MudSelectItem>
-                            <MudSelectItem Value=@(MyChartTypes.Doughnut)>Doughnut</MudSelectItem>
-                            <MudSelectItem Value=@(MyChartTypes.PolarArea)>Polar Area</MudSelectItem>
-                        </MudSelect>
-                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Charterize" style="margin:5px;">Charterize me!</MudButton>
                         @if (chartLabels != null && dataArray != null)
                         {
                             @if (selectedChartType == MyChartTypes.Pie)
