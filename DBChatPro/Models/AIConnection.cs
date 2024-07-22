@@ -20,19 +20,19 @@ namespace DBChatPro
     public class OpenAIApiResponse
     {
         [JsonPropertyName("response")]
-        public ResponseData Response { get; set; }
+        public ResponseContent Response { get; set; }
     }
 
-    public class ResponseData
+    public class ResponseContent
     {
-        [JsonPropertyName("response")]
-        public string Query { get; set; }
+        [JsonPropertyName("model_response")]
+        public string model_response { get; set; }
 
-        [JsonPropertyName("openai_fee")]
-        public OpenAIFee OpenAIFee { get; set; }
+        [JsonPropertyName("model_fee")]
+        public model_fee model_fee { get; set; }
     }
 
-    public class OpenAIFee
+    public class model_fee
     {
         [JsonPropertyName("completion_tokens")]
         public int CompletionTokens { get; set; }

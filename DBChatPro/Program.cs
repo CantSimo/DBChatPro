@@ -1,6 +1,5 @@
 using DBChatPro.Client.Pages;
 using DBChatPro.Components;
-using DBChatPro.Services;
 using MudBlazor;
 using MudBlazor.Services;
 
@@ -10,8 +9,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents();
-
-builder.Services.AddSingleton<OpenAIService>();
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:9092") });
 

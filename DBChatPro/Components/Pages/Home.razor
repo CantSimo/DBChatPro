@@ -8,7 +8,6 @@
 @using Microsoft.Data.SqlClient
 @using System.Data
 @inject ISnackbar Snackbar
-@inject OpenAIService AiService
 @inject HttpClient Http
 
 <PageTitle>Home</PageTitle>
@@ -403,8 +402,8 @@
             {
 
                 var GeneratedResponse = await response.Content.ReadFromJsonAsync<OpenAIApiResponse>();
-                Query = GeneratedResponse.Response.Query;
-                opeanai_fee = GeneratedResponse.Response.OpenAIFee.ToString();
+                Query = GeneratedResponse.Response.model_response;
+                opeanai_fee = GeneratedResponse.Response.model_fee.ToString();
             }
             else
             {

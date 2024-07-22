@@ -43,13 +43,13 @@ load_dotenv()
 class BaseHandler():
     def __init__(
             self,
-            chat_model: str = 'gpt-3.5-turbo',
+            chat_model: str = 'gpt-4o-mini',
             temperature: float = 0.2,
             **kwargs
         ):
 
-        self.charts_folder = os.getenv('CHARTS_FOLDER')
         self.llm_map = {
+            'gpt-4o-mini': lambda _: ChatOpenAI(model='gpt-4o-mini', temperature=temperature, openai_api_key=os.getenv('OPENAI_API_KEY')),
             'gpt-4': lambda _: ChatOpenAI(model='gpt-4', temperature=temperature, openai_api_key=os.getenv('OPENAI_API_KEY')),
             'gpt-4-32k': lambda _: ChatOpenAI(model='gpt-4-32k', temperature=temperature, openai_api_key=os.getenv('OPENAI_API_KEY')),
             'gpt-4-1106-preview': lambda _: ChatOpenAI(model='gpt-4', temperature=temperature, openai_api_key=os.getenv('OPENAI_API_KEY')),
@@ -84,12 +84,13 @@ class BaseHandler():
             # Get GPT model
             # llm=self.llm_map[self.chat_model] 
             llm=ChatOpenAI(model='gpt-3.5-turbo', temperature=0.2, openai_api_key=os.getenv('OPENAI_API_KEY'), verbose=True)
+            # llm=ChatOpenAI(model='gpt-4o-mini', temperature=0.2, openai_api_key=os.getenv('OPENAI_API_KEY'), verbose=True)
 
             # ************************************************************
             # create_sql_query_chain - [OK]
             # ************************************************************
             system  = """You are a {dialect} expert. Given an input question, create a syntactically correct {dialect} query to run.
-                    Unless the user specifies in the question a specific number of examples to obtain, query for at most {top_k} results using the LIMIT clause as per {dialect}. You can order the results to return the most informative data in the database.
+                    Unless the user specifies in the question a specific number of examples to obtain, query for at most {top_k} results using the TOP clause as per {dialect}. You can order the results to return the most informative data in the database.
                     Never query for all columns from a table. You must query only the columns that are needed to answer the question. Wrap each column name in double quotes (") to denote them as delimited identifiers.
                     Pay attention to use only the column names you can see in the tables below. Be careful to not query for columns that do not exist. Also, pay attention to which column is in which table.
                     Pay attention to use date('now') function to get the current date, if the question involves "today".
@@ -153,8 +154,8 @@ class BaseHandler():
             }
             
             return {
-                "response": response,
-                "openai_fee": openai_fee
+                "model_response": response,
+                "model_fee": openai_fee
             }
 
             # ************************************************************
