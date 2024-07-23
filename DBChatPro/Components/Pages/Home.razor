@@ -404,6 +404,7 @@
                 var GeneratedResponse = await response.Content.ReadFromJsonAsync<OpenAIApiResponse>();
                 Query = GeneratedResponse.Response.model_response;
                 opeanai_fee = GeneratedResponse.Response.model_fee.ToString();
+                Summary = GeneratedResponse.Response.model_verbal_response;
             }
             else
             {

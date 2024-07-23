@@ -28,6 +28,9 @@ namespace DBChatPro
         [JsonPropertyName("model_response")]
         public string model_response { get; set; }
 
+        [JsonPropertyName("model_verbal_response")]
+        public string model_verbal_response { get; set; }
+
         [JsonPropertyName("model_fee")]
         public model_fee model_fee { get; set; }
     }
